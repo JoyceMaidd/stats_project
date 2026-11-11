@@ -1,34 +1,4 @@
-# ---- Load data ----
-library(tidyverse)
-library(readxl)
-library(gt)
-
-mydata <- read_excel("data/main_dataset.xlsx", sheet = "Clean data")
-names(mydata) <- c("country", "year", "region", "region_2groups",
-                   "leave_age_total", "leave_age_men", "leave_age_women",
-                   "gender_gap", "price_income_ratio", "owners_pct",
-                   "gdp_per_capita_eur", "employment_rate_20_64")
-head(mydata)
-summary(mydata)
-
-dir.create("Workspace/nargiz/tables", showWarnings = FALSE)
-dir.create("Workspace/nargiz/charts", showWarnings = FALSE)
-
-
-# ---- Style ----
-deep_purple <- "#3E2C52"
-deep_brown  <- "#3B2A20"
-region_colours <- c(Nordic   = "#CDBFDD",
-                    Western  = "#8C76A3",
-                    Southern = "#B9BC6E",
-                    Eastern  = "#6F7342")
-
-my_theme <- theme_minimal(base_size = 14) +
-  theme(text             = element_text(colour = deep_brown),
-        axis.text        = element_text(colour = deep_brown),
-        plot.title       = element_text(face = "bold"),
-        panel.grid.minor = element_blank())
-
+source("Workspace/nargiz/setup.R")
 
 # ---- 1.1 Overall mean ----
 mean_overall <- mydata %>%
@@ -231,4 +201,33 @@ chart_boxplot <- country_avg %>%
 chart_boxplot
 ggsave("Workspace/nargiz/charts/boxplot_region.png", chart_boxplot,
        width = 7, height = 5.5, dpi = 300, bg = "white",
+       device = ragg::agg_png)
+#
+
+# ---- 2.3 Maps of Europe ----
+library(sf)
+library(rnaturalearth)
+
+sf_use_s2(FALSE)
+
+europe <- ne_countries(scale = 50, returnclass = "sf") %>%
+  st_crop(xmin = -30, xmax = 60, ymin = 30, ymax = 75) %>%
+  st_transform(3035) %>%
+  left_join(country_avg, by = c("name" = "country"))
+
+
+# ---- Map A: average leaving age by country ----
+map_age <- ggplot(europe) +
+  geom_sf(aes(fill = age), colour = "white", linewidth = 0.2) +
+  scale_fill_gradient(low = "#E9E2F1", high = deep_purple,
+                      na.value = "grey90", name = "Average\nleaving age\n(years)") +
+  coord_sf(xlim = c(2500000, 6700000), ylim = c(1250000, 5400000), expand = FALSE) +
+  theme_void(base_size = 14) +
+  theme(text            = element_text(colour = deep_brown),
+        legend.position = "inside",
+        legend.position.inside = c(0.12, 0.75))
+
+map_age
+ggsave("Workspace/nargiz/charts/map_leaving_age.png", map_age,
+       width = 8, height = 8, dpi = 300, bg = "white",
        device = ragg::agg_png)
